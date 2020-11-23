@@ -46,6 +46,11 @@ inline void Error_InvalidPropertyValue(void) {
 	QueryCtx_SetError("Property values can only be of primitive types or arrays thereof");
 }
 
+void Error_IncorrectFunctionArgumentCount(const char *func_name, int received, int expected) {
+	QueryCtx_SetError("Received %d arguments to function '%s', expected %d",
+					  received, func_name, expected);
+}
+
 /* An error was encountered during evaluation, and has already been set in the QueryCtx.
  * If an exception handler has been set, exit this routine and return to
  * the point on the stack where the handler was instantiated.  */

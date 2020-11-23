@@ -14,14 +14,23 @@
 
 /* Arithmetic function repository. */
 rax *__aeRegisteredFuncs = NULL;
+rax *__aggFuncs = NULL;
 
-AR_FuncDesc *AR_FuncDescNew(const char *name, AR_Func func, uint min_argc, uint max_argc,
-							SIType *types, bool reducible) {
+AR_FuncDesc *AR_FuncDescNew(const char *name, void *func, uint min_argc, uint max_argc,
+							SIType *types, bool reducible, bool aggregate) {
 	AR_FuncDesc *desc = rm_malloc(sizeof(AR_FuncDesc));
 	desc->name = name;
-	desc->func = func;
+	if(aggregate) {
+		desc->agg_func = func;
+		raxInsert(__aggFuncs, (unsigned char *)name, strlen(name), func, NULL);
+		desc->aggregate = true;
+	} else {
+		desc->func = func;
+		desc->aggregate = false;
+	}
 	desc->bfree = NULL;
 	desc->bclone = NULL;
+	desc->finalize = NULL;
 	desc->privdata = NULL;
 	desc->min_argc = min_argc;
 	desc->max_argc = max_argc;
@@ -54,10 +63,24 @@ bool AR_FuncExists(const char *func_name) {
 	return (AR_GetFunc(func_name) != NULL);
 }
 
+bool AR_FuncIsAggregate(const char *func_name) {
+	void *f = raxFind(__aggFuncs, (unsigned char *)func_name, strlen(func_name));
+	if(f != raxNotFound) return true;
+	return false;
+}
+
 inline void AR_SetPrivateDataRoutines(AR_FuncDesc *func_desc, AR_Func_Free bfree,
 									  AR_Func_Clone bclone) {
 	func_desc->bfree = bfree;
 	func_desc->bclone = bclone;
+}
+
+void AR_SetFinalizeRoutine(AR_FuncDesc *func_desc, AR_Func_Finalize finalize) {
+	func_desc->finalize = finalize;
+}
+
+void AR_Finalize(AR_FuncDesc *func_desc) {
+	if(func_desc->finalize) func_desc->finalize(func_desc->privdata);
 }
 
 AR_FuncDesc *AR_SetPrivateData(const AR_FuncDesc *orig, void *privdata) {
